@@ -1,0 +1,88 @@
+// ============================================================
+// Membrane with a hole (Annular rectangular domain)
+// Domain: Outer rectangle M1 minus inner rectangle M2
+// Boundary conditions:
+//   Gamma1: Outer boundary (Dirichlet, u = mu)
+//   Gamma2: Inner boundary (Neumann, du/dn = 0)
+// ============================================================
+
+// -----------------------------------------------------------------
+// PARAMETERS
+// -----------------------------------------------------------------
+real Lxouter = 4.0;     // Outer rectangle width
+real Lyouter = 3.0;     // Outer rectangle height
+real Lxinner = 2.0;     // Inner rectangle width
+real Lyinner = 1.0;     // Inner rectangle height
+
+// Position inner rectangle at center
+real x0 = (Lxouter - Lxinner) / 2;
+real y0 = (Lyouter - Lyinner) / 2;
+
+real mu = 0.0;           // Dirichlet boundary value on Gamma1
+real f0 = 1.0;           // Source term (constant)
+
+int n = 20;              // Mesh density parameter
+
+// -----------------------------------------------------------------
+// GEOMETRY DEFINITION - Annular rectangular domain
+// -----------------------------------------------------------------
+// Outer rectangle (boundary Gamma1, label=1)
+border outer1(t=0, Lyouter){x=0; y=Lyouter-t; label=1;}      // Left
+border outer2(t=0, Lxouter){x=t; y=0; label=1;}               // Bottom
+border outer3(t=0, Lyouter){x=Lxouter; y=t; label=1;}        // Right
+border outer4(t=0, Lxouter){x=Lxouter-t; y=Lyouter; label=1;}// Top
+
+// Inner rectangle (hole, boundary Gamma2, label=2)
+// Note: Negative orientation for hole
+border inner1(t=0, Lyinner){x=x0+Lxinner; y=y0+Lyinner-t; label=2;}
+border inner2(t=0, Lxinner){x=x0+Lxinner-t; y=y0; label=2;}
+border inner3(t=0, Lyinner){x=x0; y=y0+t; label=2;}
+border inner4(t=0, Lxinner){x=x0+t; y=y0+Lyinner; label=2;}
+
+// Build mesh with hole (annular region)
+mesh Th = buildmesh(
+    outer1(n*Lyouter) + outer2(n*Lxouter) + 
+    outer3(n*Lyouter) + outer4(n*Lxouter)
+    + inner1(-n*Lyinner) + inner2(-n*Lxinner) 
+    + inner3(-n*Lyinner) + inner4(-n*Lxinner)
+);
+
+plot(Th, wait=true, cmm="Annular rectangular domain");
+
+// -----------------------------------------------------------------
+// FINITE ELEMENT SPACE
+// -----------------------------------------------------------------
+fespace Vh(Th, P1);
+Vh u, v;
+
+// -----------------------------------------------------------------
+// PROBLEM DEFINITION
+// -----------------------------------------------------------------
+// Poisson equation: -Delta u = f0 in annular domain
+// Boundary conditions:
+//   On Gamma1 (label=1): u = mu (Dirichlet)
+//   On Gamma2 (label=2): du/dn = 0 (Neumann, natural condition)
+problem AnnularMembrane(u, v, solver=UMFPACK) =
+    int2d(Th)(dx(u)*dx(v) + dy(u)*dy(v))  // ∫∇u·∇v
+  - int2d(Th)(f0 * v)                      // ∫f·v
+  + on(1, u=mu);                          // Dirichlet on Gamma1
+  // Neumann condition on Gamma2 is automatically satisfied
+
+// -----------------------------------------------------------------
+// SOLVE THE PROBLEM
+// -----------------------------------------------------------------
+cout << "Solving Poisson equation on annular domain..." << endl;
+AnnularMembrane;
+
+// -----------------------------------------------------------------
+// VISUALIZATION
+// -----------------------------------------------------------------
+plot(u, fill=true, value=true, 
+     cmm="Solution u(x,y) on annular domain", 
+     wait=true);
+
+plot(u, dim=3, fill=true, 
+     cmm="3D view of solution",
+     wait=true);
+
+cout << "Program completed successfully!" << endl;
